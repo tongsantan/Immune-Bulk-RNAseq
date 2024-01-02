@@ -5,7 +5,7 @@ Immune_Bulk_RNAseq_Analysis
 
 ## Reproduce some of the figures in the journal article “Conserved Interferon-g Signaling Drives Clinical Response to Immune Checkpoint Blockade Therapy in Melanoma” 
 
-Grasso et al., 2020, Cancer Cell 38, 500–515
+## Grasso et al., 2020, Cancer Cell 38, 500–515
 
 ## In this study the authors have discovered from an immunotherapy cohort that response to immune checkpoint blockade therapy is associated with T-cell infiltration and interferon gamma (IFNG). They modelled the effect of IFNG on human melanoma cell lines.
 
