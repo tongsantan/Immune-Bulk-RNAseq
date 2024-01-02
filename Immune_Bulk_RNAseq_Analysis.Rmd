@@ -1,0 +1,502 @@
+---
+title: "Immune_Bulk_RNAseq_Analysis"
+output: rmarkdown::github_document
+---
+
+## Objectives
+
+## Reproduce some of the figures in the journal article "Conserved Interferon-g Signaling Drives Clinical Response to Immune Checkpoint Blockade Therapy in Melanoma" Grasso et al., 2020, Cancer Cell 38, 500–515
+
+## In this study the authors have discovered from an immunotherapy cohort that response to immune checkpoint blockade therapy is associated with T-cell infiltration and interferon gamma (IFNG). They modelled the effect of IFNG on human melanoma cell lines. 
+
+## They have treated 58 cell lines with IFNG for 6 hours. Among these, some cell lines included mutations in JAK1/JAK2/B2M which might affect the downstream of IFNG pathway consequently the response to IFNG. They conducted RNA-seq before (control) and after IFNG treatment samples to find the transcriptomic changes. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r}
+pacman::p_load(tidyverse, readxl, openxlsx, janitor, ggrepel, ggplot2,
+               edgeR, DESeq2, EnhancedVolcano, pheatmap,sjmisc,stringr,ComplexHeatmap,
+               clusterProfiler,org.Hs.eg.db, AnnotationDbi, conflicted,readxl,gprofiler2)
+conflict_prefer("filter", "dplyr") ## IMPORTANT
+conflict_prefer("select", "dplyr")
+conflict_prefer("intersect", "dplyr")
+conflict_prefer("setdiff", "dplyr")
+
+rm(list=ls())
+```
+
+## Read in count and filtering of genes with no expression
+
+```{r}
+counts <- read_delim("./data/GSE154996_Raw_Gene_Counts_Matrix.txt") %>% 
+  clean_names() 
+
+counts <- counts %>%
+  clean_names() %>%
+  select(gene_id, ends_with("_counts")) %>% 
+  column_to_rownames("gene_id") 
+
+
+counts <- counts %>% 
+  rename_with(~gsub("_counts", "", .))
+
+n_expressed <- rowSums(counts > 0)
+sum(n_expressed==0) #997 genes no expression
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+ggplot(data.frame(n_expressed), aes(x=n_expressed)) +
+  geom_bar() +
+  labs(x="Number of samples expressed in", y="Number of genes") +
+  theme_bw(base_size = 20)
+
+```
+
+```{r}
+dim(counts) # 19871   116
+counts <- counts[ n_expressed > 0, ] 
+dim(counts) #18874   116 (997 genes that are not express were removed)
+
+```
+## GENE ANNOTATION
+
+```{r}
+gene_ann <- data.frame(SYMBOL=rownames(counts))  
+head(gene_ann, 3)
+map <- clusterProfiler::bitr(gene_ann$SYMBOL,
+            fromType = "SYMBOL",
+            toType = c("ENTREZID", "GENENAME", "GENETYPE"), 
+            OrgDb = "org.Hs.eg.db")
+
+tb <- table(map$SYMBOL) 
+dup <- names(which(tb > 1)) 
+map %>% filter( is.element(SYMBOL, dup) )
+map <- map %>%
+  filter( !is.element(SYMBOL, dup) ) 
+dim(map)
+gene_ann <- left_join(gene_ann, map)              
+
+rownames(gene_ann) <- rownames(counts) 
+
+head(gene_ann)
+
+rm(tb, dup, map)
+
+dim(gene_ann) # 18874    4
+
+```
+
+## Sample annotation
+
+```{r}
+sample_ann <- colnames(counts) %>% 
+  as.data.frame() %>% 
+  setNames("Exp_info") %>% 
+  mutate(temp =  sub("_ko_[^_]+$", "", Exp_info),
+         Cell_line = sub("_[^_]+$", "", temp), 
+         Mutation = ifelse(grepl("jak1_ko", Exp_info),"jak1_ko", 
+                           ifelse(grepl("jak2_ko", Exp_info),"jak2_ko",
+                                  ifelse(grepl("b2m_ko", Exp_info),"b2m_ko","wt"))),
+         Treatment =  str_sub(Exp_info,-4,-1), 
+         Treatment =  factor(Treatment, levels=c("ctrl", "expt"))) %>% 
+  select(-temp) %>% 
+  column_to_rownames('Exp_info') 
+
+sample_ann %>% tabyl(Treatment)
+
+write.csv(sample_ann,"./data/sample_ann.csv", row.names = TRUE)
+
+```
+## Q1. Generate DESeq2 object using column/count data and	make a PCA plot using normalised count data.
+## Are control and treatment samples separated on the PCA plot?
+
+```{r}
+# Check the order of samples in count and sample annotation
+
+identical( colnames(counts), rownames(sample_ann) ) # identical order
+
+identical( rownames(counts), rownames(gene_ann) ) # identical order
+
+dds <- DESeqDataSetFromMatrix(countData = round(counts),
+                              colData = sample_ann,
+                              rowData = gene_ann,
+                              design = ~ -1 + Treatment + Mutation + Cell_line) 
+assay(dds)[ 1:3, 1:5]
+
+cpm(dds)[1:3, 1:5]
+
+cpm(dds) %>% colSums() %>% head()
+
+colData(dds)[1:3, ]
+
+rowData(dds)[1:3, ]
+
+dim(dds) #18874   116
+
+save(dds, file="./data/Project4_clean.rda", compress=TRUE)
+
+
+```
+## VST expression (Variable stabilizing)
+
+```{r}
+
+vst_expr <- vst(dds, blind=FALSE)
+norm_count <- assay(vst_expr)
+
+write.csv(norm_count,"./results/normalized_counts.csv", row.names = TRUE) 
+
+```
+
+## PCA Plot (By Treatment)
+
+```{r}
+
+plotPCA(vst_expr, intgroup="Treatment") + 
+  theme_bw(base_size=20)
+
+```
+## PCA Plot (By Mutation)
+
+```{r}
+
+plotPCA(vst_expr, intgroup="Mutation") + # Specify color by Treatment as specified in Design
+  theme_bw(base_size=20)
+
+```
+## Q2. Find differentially expressed genes (DEGs) between pre and post treatment  ## 
+## samples and compare list of up and down-regulated genes with author's list   ##
+
+```{r}
+
+# Differential Gene Expression
+
+gene_ann <- rowData(dds) %>%
+  data.frame() %>%
+  select(SYMBOL, ENTREZID)
+
+head(gene_ann, 3)
+
+dds <- DESeq(dds)
+
+resultsNames(dds)
+
+# Extract results for ctrl vs. expt 
+res <- results(dds, contrast=c("Treatment", "expt", "ctrl")) %>% data.frame() 
+
+res <- res %>%
+  rownames_to_column("gene") %>%
+  select(SYMBOL=gene, baseMean, LFC=log2FoldChange, p=pvalue, FDR=padj) %>%
+  filter(!is.na(LFC), !is.na(FDR)) %>%
+  arrange(p) %>%
+  left_join(gene_ann) %>% 
+  mutate( sig = sign(LFC) * (abs(LFC) > log2(1.5) & FDR < 0.05) )
+
+res %>% tabyl(sig) # (downregulated: 41, upregulated: 537)
+
+openxlsx::write.xlsx( list(res=res),file="./results/expt_up_deg_L2FC_q_filter.xlsx") 
+
+```
+## compare list of up and down-regulated genes with author's list
+
+
+```{r}
+
+article_selected <- read_excel("./data/mmc3.xlsx", skip = 1) %>%
+  select("GeneId") %>% 
+  pull()
+
+res_selected <- res %>% 
+  filter(sig != 0) %>%
+  select("SYMBOL") %>% 
+  pull()
+
+library(VennDiagram)
+# Venn Diagram to show intersections of two vectors
+#svg(file="./results/venn.svg")
+v2 <- venn.diagram( x = list(article_selected, res_selected),
+                    category.names = c("article_selected", "res_selected"),
+                    filename = NULL)
+grid.newpage()
+grid.draw(v2)
+#dev.off()
+
+intersected_gene <- Reduce(intersect, list(article_selected,res_selected))
+openxlsx::write.xlsx( list(intersected_gene=intersected_gene),file="./results/intersected_gene.xlsx") 
+
+res_gene_only <- Reduce(setdiff, list(res_selected, article_selected))
+openxlsx::write.xlsx( list(res_gene_only=res_gene_only),file="./results/res_gene_only.xlsx") 
+
+article_gene_only <- Reduce(setdiff, list(article_selected, res_selected)) %>% 
+  as.data.frame() %>% 
+  pull()
+```
+
+## Getting the list of excluded genes in results vs. authors' list
+## Specify the filtering condition of DEGs by (abs(LFC) > log2(1.5) & FDR < 0.05)
+
+
+```{r}
+
+article_selected <- read_excel("./data/mmc3.xlsx", skip = 1)
+
+library(data.table)  
+
+article_selected_fc <- article_selected[article_selected$GeneId %in% article_gene_only,] %>% 
+                      clean_names() %>% 
+                      t() %>% 
+                      as.data.frame() 
+                      
+article_selected_fc <- setDT(article_selected_fc, keep.rownames = "cell_line") %>%  
+                       row_to_names(row_number = 1) %>%
+                       mutate(cell_line =  sub("_log2fold_[^_]+$", "", gene_id)) %>% 
+                       select(c(cell_line, PHF20, SLC26A2, KANK2))   
+  
+openxlsx::write.xlsx( list(article_selected_fc=article_selected_fc),file="./results/article_selected_fc.xlsx")
+
+```
+
+## Getting the list of intersected genes in our results vs. authors' list
+
+```{r}
+
+article_selected <- read_excel("./data/mmc3.xlsx", skip = 1)
+
+intersected_selected_fc <- article_selected[article_selected$GeneId %in% intersected_gene,] %>% 
+                           clean_names() %>% 
+                           t() %>% 
+                           as.data.frame() 
+
+intersected_selected_fc <- setDT(intersected_selected_fc, keep.rownames = "cell_line") %>%  
+  row_to_names(row_number = 1) %>%
+  mutate(cell_line =  sub("_log2fold_[^_]+$", "", gene_id)) %>% 
+  select(c(cell_line, IRF1, STAT3, TRAFD1))   
+
+openxlsx::write.xlsx( list(intersected_selected_fc=intersected_selected_fc),file="./results/intersected_selected_fc.xlsx")
+
+```
+
+
+## Q3. Make a volcano plot of up and down-regulated genes.
+
+```{r}
+
+# Volcano Plot
+# Visualize the biological (log fold change) vs. statistical significance (FDR)
+
+#svg(file="./results/upregulated_genes_treatment.svg")
+EnhancedVolcano(res, # results file (non-normalized)
+                lab = res$SYMBOL, x = "LFC", y = "FDR",
+                FCcutoff = log2(2), pCutoff = 0.05,
+                title = "Upregulated genes with IFN-g treatment", subtitle = NULL,
+                ylab = bquote(~-Log[10] ~ italic(FDR)), legendPosition = "none")
+#dev.off()
+
+```
+
+## Q4. What are the top up and down regulated pathways?
+## Reproduce similar Enrichment Plots in Fig. S9. 
+
+```{r}
+
+# GSEA with Hallmark
+
+res <- read_excel("./results/expt_up_deg_L2FC_q_filter.xlsx")
+ranked <- res %>% 
+  arrange( desc(LFC) ) %>% # can also consider p-value for ranking
+  select(ENTREZID, LFC) %>%
+  na.omit() %>%
+  deframe()
+
+length(ranked)
+
+# Next, prepare the Hallmark database
+
+hallmark <- msigdbr::msigdbr(species = "human", category = "H") %>%
+  select(gs_name, entrez_gene) %>%
+  unique() %>%
+  mutate( gs_name = gsub("HALLMARK_", "", gs_name) )
+
+# Now run GSEA on Hallmark and look at the top few significant pathways:
+
+gsea_hallmark <- GSEA(gene = ranked, TERM2GENE = hallmark)
+
+gsea_hallmark <- setReadable(gsea_hallmark, OrgDb=org.Hs.eg.db, keyType="ENTREZID")
+
+gsea_hallmark@result %>%
+  filter(p.adjust < 1e-4) %>%
+  arrange(NES) %>% 
+  select(setSize, NES, p.adjust)
+
+#svg(file="./results/Dot_blot_HM.svg")
+dotplot(gsea_hallmark, showCategory=20) + labs(title="GSEA_Hallmark")
+#dev.off()
+
+```
+
+## GSEA Plot (INTERFERON_GAMMA_RESPONSE)
+
+```{r}
+keep <- gsea_hallmark@result %>% 
+  filter(ID=="INTERFERON_GAMMA_RESPONSE") %>% 
+  pull(core_enrichment) %>% 
+  str_split(pattern="\\/") %>% 
+  unlist() %>% 
+  rev()          
+
+keep <- data.frame(SYMBOL=keep)
+
+left_join(keep, res)
+
+# Visualize the enrichment for this pathway
+
+#svg(file="./results/Hallmark INTERFERON_GAMMA_RESPONSE.svg")
+gseaplot(gsea_hallmark, geneSetID = "INTERFERON_GAMMA_RESPONSE", title = "Enrichment plot: \n HALLMARK_INTERFERON_GAMMA_RESPONSE")
+#dev.off()
+
+```
+
+## GSEA-GO
+
+```{r}
+
+#Running GSEA-GO##
+res_up_GO_BP <-gseGO(ranked, 'org.Hs.eg.db', ont="BP", pvalueCutoff=0.01) 
+
+res_up_GO_BP <- setReadable(res_up_GO_BP, OrgDb=org.Hs.eg.db, keyType="ENTREZID")
+## Pull out the top ranking terms. Add geneID to see the genes involved.
+res_up_GO_BP@result %>%
+  filter(p.adjust < 1e-5) %>%
+  select(Description, setSize, NES, p.adjust)
+
+#svg(file="./results/Dot_blot_HM.svg")
+dotplot(res_up_GO_BP, showCategory=20) + labs(title="GSEA_GO_BP")
+#dev.off()
+
+```
+
+## GSEA-GO (GO_RESPONSE_TO_INTERFERON_GAMMA)
+
+```{r}
+
+keep2 <- res_up_GO_BP@result %>% 
+  filter(ID=="GO:0034341") %>% 
+  pull(core_enrichment) %>% 
+  str_split(pattern="\\/") %>% 
+  unlist() %>% 
+  rev()          
+
+keep2 <- data.frame(SYMBOL=keep2)
+
+left_join(keep2, res)
+
+#svg(file="./results/GO_Response to interferon-gamma.svg")
+gseaplot(res_up_GO_BP, geneSetID = "GO:0034341", title = "Enrichment plot: \n GO_RESPONSE_TO_INTERFERON_GAMMA")
+#dev.off()
+
+```
+
+## The top upregulated pathways are: INTERFERON_GAMMA_RESPONSE, INTERFERON_ALPHA_RESPONSE, IL6_JAK_STAT3_SIGNALING, ALLOGRAFT_REJECTION, INFLAMMATORY_RESPONSE, IL2_STAT5_SIGNALING, COMPLEMENT, TNFA_SIGNALING_VIA_NFKB
+
+```{r}
+
+#svg(file="./results/Dot_blot.svg")
+g1 <- dotplot(gsea_hallmark, showCategory=20) + labs(title="GSEA_Hallmark")
+g2 <- dotplot(res_up_GO_BP, showCategory=20) + labs(title="GSEA_GO_BP")
+cowplot::plot_grid(g1, g2, nrow=1)
+#dev.off()
+
+```
+
+## Q5. Reproduce similar heatmap in Fig. 3A. (Heatmap of log2 fold change)
+
+## Heatmap
+## Read in the csv file containing the genes to plot in heatmap
+## Import normalise count
+
+```{r}
+
+norm_count2 <- read.csv("./results/normalized_counts.csv")
+
+colnames(norm_count2)[1] ="gene_id"
+
+head(norm_count2)
+
+```
+
+
+## Import gene list
+
+```{r}
+
+gene_list <- read_csv("./data/Heatmap_genes.csv") %>% pull("gene_id")
+
+filterlist <- norm_count2 %>% 
+              filter(gene_id %in% gene_list) %>% 
+              column_to_rownames("gene_id") %>% 
+              t() %>% 
+              as.data.frame() %>% 
+              rownames_to_column("sample")  
+              
+openxlsx::write.xlsx( list(filterlist=filterlist),file="./results/filterlist_vst.xlsx")
+
+```
+
+## Generating log2FC
+
+```{r}
+
+
+DF1 <- filterlist %>% 
+       filter(grepl("_expt", sample)) %>% 
+       mutate(sample = gsub("_expt", "", sample)) %>% 
+       column_to_rownames("sample")
+
+DF2 <- filterlist %>% 
+       filter(grepl("_ctrl", sample)) %>% 
+       mutate(sample = gsub("_ctrl", "", sample)) %>% 
+       column_to_rownames("sample")
+
+```
+
+
+## Check order of column name
+
+```{r}
+
+identical( rownames(DF1), rownames(DF2) )  
+
+DF1 = DF1[rownames(DF2),] 
+
+identical( rownames(DF1), rownames(DF2) )
+
+```
+
+
+## subtraction
+
+```{r}
+
+L2FC <- DF1 -DF2
+min(L2FC)
+max(L2FC)
+L2FC_mat <- as.matrix(L2FC) %>%  t()
+
+L2FC_mat = L2FC_mat[gene_list,]
+
+pacman::p_load(circlize)
+
+#svg(file="./results/Heatmap.svg", width=10, height=9)
+Heatmap(L2FC_mat,cluster_rows = F,
+        column_names_gp = grid::gpar(fontsize = 8),column_title = "Samples", row_title = "Gene_list",
+        row_names_gp = grid::gpar(fontsize = 8), name = "Scale",
+        col = colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))) 
+#dev.off()
+
+```
