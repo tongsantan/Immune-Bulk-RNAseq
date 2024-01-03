@@ -141,7 +141,7 @@ rowData(dds)[1:3, ]
 
 dim(dds) #18874   116
 
-save(dds, file="./data/Project4_clean.rda", compress=TRUE)
+save(dds, file="./data/data_clean.rda", compress=TRUE)
 
 
 ```

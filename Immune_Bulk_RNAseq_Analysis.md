@@ -300,7 +300,7 @@ dim(dds) #18874   116
     ## [1] 18874   116
 
 ``` r
-save(dds, file="./data/Project4_clean.rda", compress=TRUE)
+save(dds, file="./data/data_clean.rda", compress=TRUE)
 ```
 
 ## VST expression (Variable stabilizing)
