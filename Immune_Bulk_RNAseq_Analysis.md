@@ -3,7 +3,7 @@ Immune_Bulk_RNAseq_Analysis
 
 ## Objectives
 
-### Reproduce some of the figures in the journal article “Conserved Interferon-g Signaling Drives Clinical Response to Immune Checkpoint Blockade Therapy in Melanoma” 
+### Gene expression profiling by RNAseq using data from the journal article “Conserved Interferon-g Signaling Drives Clinical Response to Immune Checkpoint Blockade Therapy in Melanoma” 
 
 ### Grasso et al., 2020, Cancer Cell 38, 500–515
 
