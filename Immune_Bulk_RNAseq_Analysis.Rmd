@@ -54,7 +54,7 @@ n_expressed <- rowSums(counts > 0)
 sum(n_expressed==0) #997 genes no expression
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
 
 ```{r}
 ggplot(data.frame(n_expressed), aes(x=n_expressed)) +

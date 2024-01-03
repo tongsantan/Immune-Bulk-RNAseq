@@ -78,8 +78,6 @@ sum(n_expressed==0) #997 genes no expression
 
     ## [1] 997
 
-Note that the `echo = FALSE` parameter was added to the code chunk to
-prevent printing of the R code that generated the plot.
 
 ``` r
 ggplot(data.frame(n_expressed), aes(x=n_expressed)) +
