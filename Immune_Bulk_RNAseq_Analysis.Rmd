@@ -15,7 +15,7 @@ output: rmarkdown::github_document
 
 ## Data
 
-# Raw gene count data is accessible from GEO with the following accession code:GSE154996
+# Raw gene count data is accessible from GEO with the following accession code: GSE154996
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
