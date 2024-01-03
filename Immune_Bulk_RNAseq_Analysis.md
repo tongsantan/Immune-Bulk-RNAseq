@@ -11,7 +11,7 @@ Immune_Bulk_RNAseq_Analysis
 
 # They have treated 58 cell lines with IFNG for 6 hours. Among these, some cell lines included mutations in JAK1/JAK2/B2M which might affect the downstream of IFNG pathway consequently the response to IFNG. They conducted RNA-seq before (control) and after IFNG treatment samples to find the transcriptomic changes.
 
-# Raw gene count data is accessible from GEO with the following accession code:GSE154996
+# Raw gene count data is accessible from GEO with the following accession code: GSE154996
 
 ## Setup
 
