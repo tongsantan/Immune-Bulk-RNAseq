@@ -663,7 +663,7 @@ gsea_hallmark@result %>%
 
 ``` r
 #svg(file="./results/Dot_blot_HM.svg")
-dotplot(gsea_hallmark, showCategory=20) + labs(title="GSEA_Hallmark")
+dotplot(gsea_hallmark, showCategory=20, split=".sign") + labs(title="GSEA_Hallmark") + facet_grid(.~.sign)
 ```
 
 ![](Immune_Bulk_RNAseq_Analysis_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
@@ -1097,7 +1097,7 @@ res_up_GO_BP@result %>%
 
 ``` r
 #svg(file="./results/Dot_blot_HM.svg")
-dotplot(res_up_GO_BP, showCategory=20) + labs(title="GSEA_GO_BP")
+dotplot(res_up_GO_BP, showCategory=5, split=".sign") + labs(title="GSEA_GO_BP") + facet_grid(.~.sign)
 ```
 
 ![](Immune_Bulk_RNAseq_Analysis_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
@@ -1181,8 +1181,8 @@ gseaplot(res_up_GO_BP, geneSetID = "GO:0034341", title = "Enrichment plot: \n GO
 
 ``` r
 #svg(file="./results/Dot_blot.svg")
-g1 <- dotplot(gsea_hallmark, showCategory=20) + labs(title="GSEA_Hallmark")
-g2 <- dotplot(res_up_GO_BP, showCategory=20) + labs(title="GSEA_GO_BP")
+g1 <- dotplot(gsea_hallmark, showCategory=20, split=".sign") + labs(title="GSEA_Hallmark") + facet_grid(.~.sign)
+g2 <- dotplot(res_up_GO_BP, showCategory=5, split=".sign") + labs(title="GSEA_GO_BP") + facet_grid(.~.sign)
 cowplot::plot_grid(g1, g2, nrow=1)
 ```
 

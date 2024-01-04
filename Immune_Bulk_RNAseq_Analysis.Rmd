@@ -341,7 +341,7 @@ gsea_hallmark@result %>%
   select(setSize, NES, p.adjust)
 
 #svg(file="./results/Dot_blot_HM.svg")
-dotplot(gsea_hallmark, showCategory=20) + labs(title="GSEA_Hallmark")
+dotplot(gsea_hallmark, showCategory=20, split=".sign") + labs(title="GSEA_Hallmark") + facet_grid(.~.sign)
 #dev.off()
 
 ```
@@ -382,7 +382,7 @@ res_up_GO_BP@result %>%
   select(Description, setSize, NES, p.adjust)
 
 #svg(file="./results/Dot_blot_HM.svg")
-dotplot(res_up_GO_BP, showCategory=20) + labs(title="GSEA_GO_BP")
+dotplot(res_up_GO_BP, showCategory=5, split=".sign") + labs(title="GSEA_GO_BP") + facet_grid(.~.sign)
 #dev.off()
 
 ```
@@ -413,8 +413,8 @@ gseaplot(res_up_GO_BP, geneSetID = "GO:0034341", title = "Enrichment plot: \n GO
 ```{r}
 
 #svg(file="./results/Dot_blot.svg")
-g1 <- dotplot(gsea_hallmark, showCategory=20) + labs(title="GSEA_Hallmark")
-g2 <- dotplot(res_up_GO_BP, showCategory=20) + labs(title="GSEA_GO_BP")
+g1 <- dotplot(gsea_hallmark, showCategory=20, split=".sign") + labs(title="GSEA_Hallmark") + facet_grid(.~.sign)
+g2 <- dotplot(res_up_GO_BP, showCategory=5, split=".sign") + labs(title="GSEA_GO_BP") + facet_grid(.~.sign)
 cowplot::plot_grid(g1, g2, nrow=1)
 #dev.off()
 
