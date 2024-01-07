@@ -245,7 +245,7 @@ article_gene_only <- Reduce(setdiff, list(article_selected, res_selected)) %>%
 ```
 
 ## Getting the list of excluded genes in results vs. authors' list
-# Specify the filtering condition of DEGs by (abs(LFC) > log2(1.5) & FDR < 0.05)
+### Specify the filtering condition of DEGs by (abs(LFC) > log2(1.5) & FDR < 0.05)
 
 
 ```{r, warning=FALSE}
@@ -432,8 +432,8 @@ cowplot::plot_grid(g1, g2, nrow=1)
 ## Q5. Reproduce similar heatmap in Fig. 3A. (Heatmap of log2 fold change)
 
 ## Heatmap
-# Read in the csv file containing the genes to plot in heatmap
-# Import normalise count
+### Read in the csv file containing the genes to plot in heatmap
+### Import normalise count
 
 ```{r, results='hide'}
 
