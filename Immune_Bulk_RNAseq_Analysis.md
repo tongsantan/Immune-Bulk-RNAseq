@@ -467,7 +467,7 @@ article_gene_only <- Reduce(setdiff, list(article_selected, res_selected)) %>%
 
 ## Getting the list of excluded genes in results vs. authors’ list
 
-# Specify the filtering condition of DEGs by (abs(LFC) \> log2(1.5) & FDR \< 0.05)
+### Specify the filtering condition of DEGs by (abs(LFC) \> log2(1.5) & FDR \< 0.05)
 
 ``` r
 article_selected <- read_excel("./data/mmc3.xlsx", skip = 1)
@@ -712,7 +712,7 @@ gseaplot(res_up_GO_BP, geneSetID = "GO:0034341", title = "Enrichment plot: \n GO
 #dev.off()
 ```
 
-## The top upregulated pathways are: INTERFERON_GAMMA_RESPONSE, INTERFERON_ALPHA_RESPONSE, IL6_JAK_STAT3_SIGNALING, ALLOGRAFT_REJECTION, INFLAMMATORY_RESPONSE, IL2_STAT5_SIGNALING, COMPLEMENT, TNFA_SIGNALING_VIA_NFKB
+### The top upregulated pathways are: INTERFERON_GAMMA_RESPONSE, INTERFERON_ALPHA_RESPONSE, IL6_JAK_STAT3_SIGNALING, ALLOGRAFT_REJECTION, INFLAMMATORY_RESPONSE, IL2_STAT5_SIGNALING, COMPLEMENT, TNFA_SIGNALING_VIA_NFKB
 
 ``` r
 #svg(file="./results/Dot_blot.svg")
@@ -731,9 +731,9 @@ cowplot::plot_grid(g1, g2, nrow=1)
 
 ## Heatmap
 
-# Read in the csv file containing the genes to plot in heatmap
+### Read in the csv file containing the genes to plot in heatmap
 
-# Import normalise count
+### Import normalise count
 
 ``` r
 norm_count2 <- read.csv("./results/normalized_counts.csv")
