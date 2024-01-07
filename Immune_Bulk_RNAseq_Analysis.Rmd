@@ -15,7 +15,7 @@ output: rmarkdown::github_document
 
 ## Data
 
-### Raw gene count data is accessible from GEO with the following accession code: GSE154996
+### Raw gene count data is accessible from GEO with the following accession code:GSE154996
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -37,7 +37,7 @@ rm(list=ls())
 
 ## Read in count and filtering of genes with no expression
 
-```{r}
+```{r, results='hide'}
 counts <- read_delim("./data/GSE154996_Raw_Gene_Counts_Matrix.txt") %>% 
   clean_names() 
 
@@ -54,7 +54,7 @@ n_expressed <- rowSums(counts > 0)
 sum(n_expressed==0) #997 genes no expression
 ```
 
-
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 ```{r}
 ggplot(data.frame(n_expressed), aes(x=n_expressed)) +
@@ -212,7 +212,7 @@ openxlsx::write.xlsx( list(res=res),file="./results/expt_up_deg_L2FC_q_filter.xl
 ## compare list of up and down-regulated genes with author's list
 
 
-```{r}
+```{r, warning=FALSE}
 
 article_selected <- read_excel("./data/mmc3.xlsx", skip = 1) %>%
   select("GeneId") %>% 
@@ -245,10 +245,10 @@ article_gene_only <- Reduce(setdiff, list(article_selected, res_selected)) %>%
 ```
 
 ## Getting the list of excluded genes in results vs. authors' list
-## Specify the filtering condition of DEGs by (abs(LFC) > log2(1.5) & FDR < 0.05)
+# Specify the filtering condition of DEGs by (abs(LFC) > log2(1.5) & FDR < 0.05)
 
 
-```{r}
+```{r, warning=FALSE}
 
 article_selected <- read_excel("./data/mmc3.xlsx", skip = 1)
 
@@ -270,7 +270,7 @@ openxlsx::write.xlsx( list(article_selected_fc=article_selected_fc),file="./resu
 
 ## Getting the list of intersected genes in our results vs. authors' list
 
-```{r}
+```{r, warning=FALSE}
 
 article_selected <- read_excel("./data/mmc3.xlsx", skip = 1)
 
@@ -348,7 +348,7 @@ dotplot(gsea_hallmark, showCategory=20, split=".sign") + labs(title="GSEA_Hallma
 
 ## GSEA Plot (INTERFERON_GAMMA_RESPONSE)
 
-```{r}
+```{r, results='hide'}
 keep <- gsea_hallmark@result %>% 
   filter(ID=="INTERFERON_GAMMA_RESPONSE") %>% 
   pull(core_enrichment) %>% 
@@ -360,17 +360,20 @@ keep <- data.frame(SYMBOL=keep)
 
 left_join(keep, res)
 
+```
+```{r}
 # Visualize the enrichment for this pathway
 
 #svg(file="./results/Hallmark INTERFERON_GAMMA_RESPONSE.svg")
 gseaplot(gsea_hallmark, geneSetID = "INTERFERON_GAMMA_RESPONSE", title = "Enrichment plot: \n HALLMARK_INTERFERON_GAMMA_RESPONSE")
 #dev.off()
-
 ```
+
+
 
 ## GSEA-GO
 
-```{r}
+```{r, results='hide'}
 
 #Running GSEA-GO##
 res_up_GO_BP <-gseGO(ranked, 'org.Hs.eg.db', ont="BP", pvalueCutoff=0.01) 
@@ -381,15 +384,18 @@ res_up_GO_BP@result %>%
   filter(p.adjust < 1e-5) %>%
   select(Description, setSize, NES, p.adjust)
 
+```
+
+```{r}
 #svg(file="./results/Dot_blot_HM.svg")
 dotplot(res_up_GO_BP, showCategory=5, split=".sign") + labs(title="GSEA_GO_BP") + facet_grid(.~.sign)
 #dev.off()
-
 ```
+
 
 ## GSEA-GO (GO_RESPONSE_TO_INTERFERON_GAMMA)
 
-```{r}
+```{r, results='hide'}
 
 keep2 <- res_up_GO_BP@result %>% 
   filter(ID=="GO:0034341") %>% 
@@ -402,11 +408,14 @@ keep2 <- data.frame(SYMBOL=keep2)
 
 left_join(keep2, res)
 
+```
+
+```{r}
 #svg(file="./results/GO_Response to interferon-gamma.svg")
 gseaplot(res_up_GO_BP, geneSetID = "GO:0034341", title = "Enrichment plot: \n GO_RESPONSE_TO_INTERFERON_GAMMA")
 #dev.off()
-
 ```
+
 
 ## The top upregulated pathways are: INTERFERON_GAMMA_RESPONSE, INTERFERON_ALPHA_RESPONSE, IL6_JAK_STAT3_SIGNALING, ALLOGRAFT_REJECTION, INFLAMMATORY_RESPONSE, IL2_STAT5_SIGNALING, COMPLEMENT, TNFA_SIGNALING_VIA_NFKB
 
@@ -423,10 +432,10 @@ cowplot::plot_grid(g1, g2, nrow=1)
 ## Q5. Reproduce similar heatmap in Fig. 3A. (Heatmap of log2 fold change)
 
 ## Heatmap
-## Read in the csv file containing the genes to plot in heatmap
-## Import normalise count
+# Read in the csv file containing the genes to plot in heatmap
+# Import normalise count
 
-```{r}
+```{r, results='hide'}
 
 norm_count2 <- read.csv("./results/normalized_counts.csv")
 
